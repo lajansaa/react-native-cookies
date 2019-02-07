@@ -160,29 +160,25 @@ RCT_EXPORT_METHOD(
 }
 
 RCT_EXPORT_METHOD(
-    clearAll:(BOOL)useWebKit
-    resolver:(RCTPromiseResolveBlock)resolve
-    rejecter:(RCTPromiseRejectBlock)reject)
+                  clearAll:(BOOL)useWebKit
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
 {
     if (useWebKit) {
         if (@available(iOS 11.0, *)) {
             dispatch_async(dispatch_get_main_queue(), ^(){
-                WKHTTPCookieStore *cookieStore = [[WKWebsiteDataStore defaultDataStore] httpCookieStore];
-                [cookieStore getAllCookies:^(NSArray<NSHTTPCookie *> *allCookies) {
-                    for(NSHTTPCookie *currentCookie in allCookies) {
-                        // Uses the NSHTTPCookie directly has no effect, nor deleted the cookie nor thrown an error.
-                        // Create a new cookie with the given values and delete this one do the work.
-                        NSMutableDictionary<NSHTTPCookiePropertyKey, id> *cookieData =  [NSMutableDictionary dictionary];
-                        [cookieData setValue:currentCookie.name forKey:NSHTTPCookieName];
-                        [cookieData setValue:currentCookie.value forKey:NSHTTPCookieValue];
-                        [cookieData setValue:currentCookie.domain forKey:NSHTTPCookieDomain];
-                        [cookieData setValue:currentCookie.path forKey:NSHTTPCookiePath];
-
-                        NSHTTPCookie *newCookie = [NSHTTPCookie cookieWithProperties:cookieData];
-                        [cookieStore deleteCookie:newCookie completionHandler:^{}];
-                    }
-                    resolve(nil);
-                }];
+                WKWebsiteDataStore *dateStore = [WKWebsiteDataStore defaultDataStore];
+                [dateStore fetchDataRecordsOfTypes:[WKWebsiteDataStore allWebsiteDataTypes]
+                                 completionHandler:^(NSArray<WKWebsiteDataRecord *> * __nonnull records) {
+                                     for (WKWebsiteDataRecord *record  in records)
+                                     {
+                                         [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:record.dataTypes
+                                                                                   forDataRecords:@[record]
+                                                                                completionHandler:^{
+                                                                                    NSLog(@"Cookies for %@ deleted successfully",record.displayName);
+                                                                                }];
+                                     }
+                                 }];
             });
         } else {
             reject(@"", NOT_AVAILABLE_ERROR_MESSAGE, nil);
@@ -227,21 +223,6 @@ RCT_EXPORT_METHOD(
     } else {
         NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
         resolve([self createCookieList:cookieStorage.cookies]);
-    }
-}
-
-RCT_EXPORT_METHOD(getAll:(RCTPromiseResolveBlock)resolve
-    rejecter:(RCTPromiseRejectBlock)reject) {
-    NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
-    NSMutableDictionary *cookies = [NSMutableDictionary dictionary];
-    for (NSHTTPCookie *c in cookieStorage.cookies) {
-        NSMutableDictionary *d = [NSMutableDictionary dictionary];
-        [d setObject:c.value forKey:@"value"];
-        [d setObject:c.name forKey:@"name"];
-        [d setObject:c.domain forKey:@"domain"];
-        [d setObject:c.path forKey:@"path"];
-        [d setObject:[self.formatter stringFromDate:c.expiresDate] forKey:@"expiresDate"];
-        [cookies setObject:d forKey:c.name];
     }
 }
 
