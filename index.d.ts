@@ -1,1 +1,7 @@
-declare module 'react-native-cookies'
+
+interface CookieManagerStatic {
+    clearAll: Function;
+}
+declare const CookieManager: CookieManagerStatic;
+
+export default CookieManager;
